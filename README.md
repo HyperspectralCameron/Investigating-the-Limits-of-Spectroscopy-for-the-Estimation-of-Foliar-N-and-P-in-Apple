@@ -1,7 +1,7 @@
 Investigating the Limits of Spectroscopy for the Estimation of Foliar N and P in Apple
 
-Herein lies the raw data and code to reproduce the results presented in C.Cullinan and A.Scomparin et al., 2024, 
-Predicting Leaf Nitrogen and Phosphorus Concentrations in Apple using UV-VIS-NIR spectroscopy - beyond the proof of concept
+Herein lies the raw data and code to reproduce the results presented in C.Cullinan and A.Scomparin et al., 2025, 
+Investigating the Limits of Spectroscopy for the Estimation of Foliar N and P in Apple
 
 All file paths are in the script are relative to the location of the script, therefore the file structure should be preserved.
 
