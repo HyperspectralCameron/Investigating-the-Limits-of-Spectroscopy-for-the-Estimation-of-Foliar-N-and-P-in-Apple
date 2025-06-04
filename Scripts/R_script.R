@@ -6,7 +6,6 @@
 # nutrient analysis 2023 #
 
 #Document set up ================
-#BM
 # we have all the data except N concentration from June, and some scans from:
 # Super important that the same dates are used for each sampling event: the dates used here are obtained from the spectroradiometric data and are: scans 103 to 255 from 2 May
 # 2023-05-02
@@ -18,7 +17,6 @@
 # they must be changed in the names of the file and the dates in the files themselves
 
 #general libraries
-set.seed(4444)
 library(tidyverse)
 
 #set working directory: all paths are relative to the script location
@@ -77,6 +75,7 @@ nutrient.content.P.by.date <-
       skip = 1
     )
   })
+
 names(nutrient.content.P.by.date) <-
   list.files("../Analysis Results/Phosphorus/") %>%
   str_replace(".xlsx", "")
@@ -167,6 +166,7 @@ Long.all.dates.P <-
                names_to = "Nutrient",
                values_to = "Concentration")
 
+
 ##Greenhouse experimental setup info ==============================
 # Load Treatment information: which Tree has which Treatment?
 # NB!!!! Tree number must always be the first  in the
@@ -210,21 +210,24 @@ library(ggsci)
 
 
 plot.nutrients.Date.x <- function(data) {
-  ggplot(data = data, aes(x = as.factor(Date), y = Concentration)) +
+  ggplot(data = data %>% 
+           #comment out to include outliers
+           filter(is.na(outlier)), aes(x = as.factor(Date), y = Concentration)) +
     geom_boxplot(aes(fill = Treatment),
                  alpha = 0.4,
                  outlier.size = -1) +
-    geom_point(aes(colour = Treatment),
-               position = position_jitterdodge(jitter.width = 0.2),
-               size = 1) +
-    geom_point(
-      aes(y = outlier, fill = Treatment),
-      position = position_dodge(width = 0.67),
-      shape = 4,
-      colour = "red",
-      stroke = 1.3,
-      show.legend = F
-    ) +
+    # geom_point(aes(colour = Treatment),
+    #            position = position_jitterdodge(jitter.width = 0.2),
+    #            size = 1) +
+# remove commemnt to include outliers
+    # geom_point(
+    #   aes(y = outlier, fill = Treatment),
+    #   position = position_dodge(width = 0.67),
+    #   shape = 4,
+    #   colour = "red",
+    #   stroke = 1.3,
+    #   show.legend = F
+    # ) +
     #geom_text(aes(label = outlier, group = Date), position = position_dodge(width = 0.9))+
     #geom_violin(aes(fill = as.factor(Date))) +
     #geom_jitter(aes(shape = as.factor(Date)),
@@ -260,7 +263,7 @@ plot.nutrients.Date.x <- function(data) {
 }
 
 
-(boxplot.with.outliers <-
+(boxplot <-
     plot.nutrients.Date.x(
       data = dplyr::filter(Long.all.dates, Nutrient %in% c("N", "P")) %>%
         mutate(Treatment = factor(
@@ -269,7 +272,6 @@ plot.nutrients.Date.x <- function(data) {
           ordered = T
         ))
     ))
-Long.all.dates$Treatment %>% is.ordered
 
 #remove outliers
 Long.all.dates %>% filter(is.na(outlier)) -> Long.all.dates #remove outliers
@@ -296,11 +298,10 @@ data = dplyr::filter(data, Nutrient %in% c("N", "P")) %>%
   ))) %>%
   mutate(transformed = (Concentration))
 
-
 #Data calculations: useful to dig deeper
 library(ggpubr)
 compare_means(
-  transformed ~ Treatment,
+  Concentration ~ Treatment,
   group.by = c("Nutrient", "Date"),
   method = "anova",
   data = data
@@ -325,63 +326,34 @@ data %>% mutate(Treatment = factor(Treatment, ordered = F)) %>% group_by(Nutrien
   )) %>%
   arrange(Nutrient, Date, Treatment) %>% left_join(UQs, by = c("Treatment", "Date", "Nutrient")) -> means
 
-#manual curation: add significance to plot
-means[which(means$Nutrient == "N" &
-              means$Date == "2023-06-30" &
-              means$Treatment == "Low N"), "margin"] <- 0.7
-means[which(means$Nutrient == "N" &
-              means$Date == "2023-07-10" &
-              means$Treatment == "Low P"), "margin"] <- 0.7
-means[which(means$Nutrient == "P" &
-              means$Date == "2023-06-09" &
-              means$Treatment == "APP"), "margin"] <- 0.087
-means[which(means$Nutrient == "P" &
-              means$Date == "2023-06-09" &
-              means$Treatment == "-P"), "margin"] <- 0.06
-means[which(means$Nutrient == "P" &
-              means$Date == "2023-07-10" &
-              means$Treatment == "-N"), "margin"] <- 0.15
 
-boxplot.with.outliers +
+(boxplot +
   geom_text(
-    data = means,
+    data = means %>% 
+      mutate(p.signif = str_replace(p.signif, "ns", "")) %>%
+      replace_na(list(p.signif = "")),
     aes(
-      y = UQ + margin,
+      y = UQ,
       x = as.factor(Date),
-      fill = Treatment,
-      label = p.signif
+      label = p.signif,
+      group = Treatment
     ),
     #position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0, jitter.height = 1),
     position = position_dodge(width = .75),
-    size = 3.5
+    size = 3.5,
+    hjust = -.07,
+    vjust = 0.35
   ) +
-  theme(text = element_text(size = 12)) -> boxplot.with.outliers
+  theme(text = element_text(size = 12),
+        legend.position = "none") -> boxplot)
+
+#ggsave("Figure_1.pdf", boxplot)
 
 
-#all in one row
-boxplot.with.outliers +
-  geom_text(
-    data = means,
-    aes(
-      y = UQ + margin,
-      x = as.factor(Date),
-      fill = Treatment,
-      label = p.signif
-    ),
-    #position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0, jitter.height = 1),
-    position = position_dodge(width = .75),
-    size = 3.5
-  ) +
-  theme(text = element_text(size = 12))+
-  facet_wrap(~Nutrient, ncol = 2, scales = "free") -> x
-
-x$layers[[2]]$aes_params$size <- .8
-x
 # check assumptions
-library(DescTools)
 library(car)
 
-data  %>% group_by(Nutrient, Date) %>% 
+data  %>%
   do(anova = lm(transformed ~ Treatment, data = .)) ->
   tests
 tests$anova %>% lapply(plot, ask = F)
@@ -430,24 +402,56 @@ ShootGrowth %>%  group_by(TreeID, Treatment) %>%
   arrange(factor(Treatment, levels = c("C", "APP", "-N", "Low N", "-P", "Low P"))) ->
   TotalShootGrowth
 
-TotalShootGrowth
+data <- TotalShootGrowth
+# means of shoot grouth for labels
+UQs <-  data %>% group_by(Treatment) %>%
+  summarise(UQ = quantile(TotalShootGrowth, .75),
+            IQR = IQR(TotalShootGrowth)) %>%  
+  mutate(Treatment = factor(
+              Treatment,
+              levels = c("C", "APP", "-N", "Low N", "-P", "Low P"),
+              ordered = T
+            ))
+
+data %>% ungroup %>% distinct(Treatment) %>%  mutate(group2 = "C", p.signif = NA) %>% 
+  filter(Treatment == "C") -> controls
+data %>% mutate(Treatment = factor(Treatment, ordered = F)) %>%
+  compare_means(
+    formula = TotalShootGrowth ~ Treatment,
+    data = .,
+    method = "t.test",
+    ref.group = "C"
+  ) %>% 
+ bind_rows(controls) %>%  mutate(Treatment = factor(
+    group2,
+    levels = c("C", "APP", "-N", "Low N", "-P", "Low P"),
+    ordered = T
+  )) %>% 
+  arrange(Treatment) %>% left_join(UQs, by = c("Treatment")) -> means
+
 ggplot(data = TotalShootGrowth, aes(x = Treatment, y = log(TotalShootGrowth *
                                                              1000))) +
   geom_boxplot(aes(fill = Treatment),
                alpha = 0.4,
-               outlier.size = -1) +
-  geom_point(aes(colour = Treatment),
-             position = position_jitter(width = 0.2),
-             size = 2) +
+               outliers = F) +
+  # geom_point(aes(colour = Treatment),
+  #            position = position_jitter(width = 0.2),
+  #            size = 2) +
   theme_classic() +
   #stat_compare_means(method = "anova", label.y.npc = "bottom", label.x.npc = "left", label = "p.format")+
-  stat_compare_means(
-    method = "t.test",
-    ref.group = "C",
-    label = "p.signif",
-    label.y.npc = 0.8,
-    size = 3.5
-  ) +
+  geom_text(
+    data = means %>% 
+      mutate(p.signif = str_replace(p.signif, "ns", "")) %>%
+      replace_na(list(p.signif = "")),
+    aes(
+      y = log(UQ*1000),
+      label = p.signif,
+      group = Treatment
+    ),
+    size = 3.5,
+    hjust = -.07,
+    vjust = .35
+  )+
   scale_fill() +
   scale_colour() +
   ylab("Log(Total Shoot Growth (mm))") +
@@ -456,7 +460,7 @@ ggplot(data = TotalShootGrowth, aes(x = Treatment, y = log(TotalShootGrowth *
   nutrient.boxplots <-
     ggpubr::ggarrange(
       shoot.growth.boxplot,
-      boxplot.with.outliers,
+      boxplot,
       nrow = 1,
       legend = "right",
       labels = "auto",
@@ -465,41 +469,10 @@ ggplot(data = TotalShootGrowth, aes(x = Treatment, y = log(TotalShootGrowth *
     )
 )
 
-###  Growth Distribution  =================================
-
-ShootGrowth %>% select(TreeID, Treatment) %>% distinct() %>%
-  group_by(Treatment) %>% summarise(trt.count = n()) -> trt.count
-
-ShootGrowth %>% mutate(bin = cut(Length, breaks = c(seq(0, 300, 10)))) %>%
-  group_by(Treatment, bin) %>% summarise(Cum.length = sum(Length)) %>%
-  left_join(trt.count, "Treatment") %>% mutate(Cum.length.tree = Cum.length /
-                                                 trt.count) -> length.dist
-
-ggplot(length.dist, aes(x = bin, y = Cum.length.tree)) +
-  geom_density(
-    aes(
-      colour = Treatment,
-      group = Treatment,
-      fill = Treatment
-    ),
-    linewidth = 1.2,
-    alpha = 0.2,
-    stat = "identity"
-  ) +
-  theme_classic() +
-  scale_fill(
-    limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-    labels = c("Control", "APP", "-N", "Low N", "-P", "Low P"),
-    name = "Treatment"
-  ) +
-  scale_colour(
-    limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-    labels = c("Control", "APP", "-N", "Low N", "-P", "Low P"),
-    name = "Treatment"
-  )
-#facet_wrap(~Treatment)
-
-
+# scalar = 1.5
+# ggsave("Figure_1.pdf", nutrient.boxplots,
+#        width = 6*scalar,
+#        height = 5*scalar)
 
 ##Spectral Data ======================
 #                      All of this is data wrangling
@@ -507,214 +480,215 @@ ggplot(length.dist, aes(x = bin, y = Cum.length.tree)) +
 # took in the field (i.e. which scan belongs to each tree). You can
 # just load the final data set at the end.
 
-#load spectral data
-library(spectrolab)
+# #load spectral data
+# library(spectrolab)
+# 
+# # sed files must be saved directly in each months folder (no subfolders)
+# setwd(dirname(getActiveDocumentContext()$path))
+# setwd("../SED files/")
+# spectra.by.date <-
+#   lapply(dir_ls(), function(working.directory) {
+#     setwd(working.directory)
+#     #list of all sig files
+#     file.list <- list.files(pattern = "*.sed")
+#     spectra <- read_spectra(file.list, extract_metadata = T)
+#     setwd("../")
+#     return(spectra)
+#   })
+# 
+# metadata <-
+#   lapply(spectra.by.date, function(spectra) {
+#     metadf <- meta(spectra)
+#     return(list("dims" = dim(spectra), "metadata" = metadf))
+#   })
+# library(janitor)
+# #total spectra
+# metadata %>% get_elements("dims") %>% bind_rows(.id = "Date") %>% select(n_samples)
+# #data loaded correctly, continue working in main directory:
+# setwd(dirname(getActiveDocumentContext()$path))
+# #reducing the scan down to simple number and setting classes
+# 
+# df.by.date <-
+#   lapply(spectra.by.date, function(spectra) {
+#     # spectra = spectra.by.date$`2023_Jul_10`
+#     df <-
+#       as.data.frame(spectra) %>%
+#       separate(sample_name, c(NA, "Experiment", "x1", "Target", "filetype")) %>%
+#       rename(Scan = Target) %>%
+#       select(-x1)
+#     df$Date <- as.Date(df$Date, format = "%m/%d/%Y")
+#     df$Time <-
+#       format(as.POSIXlt(df$Time, format = "%H:%M:%S"), "%H:%M:%S")
+#     df$Scan <- gsub("^0+", "", df$Scan)
+#     return("df" = df) #dimensions df)
+#   })
+# 
+# 
+# ##     Labels =======================================
+# 
+# 
+# #import.labels: NB! must have one file for each date. All files should be saved
+# #under the date in the form 2023_May_30
+# 
+# label.files <- dir_ls("../Excel trees/") %>%
+#   `names<-`(names(df.by.date)) #NB! the order of the data frames must be exactly the same as label files
+# label.files %>% names()
+# 
+# #colnames must all be the the same: Scan, Nutrient, TreeID, CIF (although not
+# #really needed)
+# labels.by.date <-
+#   lapply(label.files, function(label.file) {
+#     read_excel(label.file)
+#   })
+# 
+# #labels for which we don't have scans
+# check.scans.vs.labels <-
+#   function(labels, df) {
+#     labels %>%
+#       filter(!Scan %in% df$Scan) %>%   #select rows in which the label scan number is not in the spectra: eg. May 30 scans are not all in the same folder. change so that it is the case.
+#       select(Scan) %>%
+#       mutate(Scan = as.numeric(Scan)) %>%
+#       arrange(Scan)
+#   } # NAs are errors
+# mapply(check.scans.vs.labels, labels.by.date, df.by.date)
+# #check we have no labels with with scan id's that are not also in the scan data. i.e. we have a label for every scan: easier if the data are clean (table scan numbers stop
+# # when the actual scans do)
+# 
+# #we are missing scans 103 to 255 from 2 May: Data lost to a technical
+# # malfunctions
+# 
+# #scans for which we don't have labels
+# check.labels.vs.scans <-
+#   function(df, labels) {
+#     df %>%
+#       filter(!Scan %in% labels$Scan) %>% #Select scans in spectral data that are not in labels
+#       select(Scan)
+#     #nrow() # . = the amount of errors and refs i.e. labels and scans are congruent
+#   }
+# mapply(check.labels.vs.scans, df.by.date, labels.by.date)
+# #scans 1 and 2 from 30 June must have been errors or not relevant.
+# #Not in labels merge labels and scans and calculate
+# #tree/leaf means for each nutrient
+# 
+# calculate_mode <-
+#   function(x) {
+#     # function for aggregating tree treatment class
+#     uniqx <- unique(na.omit(x))
+#     uniqx[which.max(tabulate(match(x, uniqx)))]
+#   }
+# 
+# 
+# #merge labels and scans (means
+# #spectra for P estimation are also done here)
+# merge.labels.and.scans <- function(labels, scans) {
+#   labels$Scan <- as.character(labels$Scan)
+#   scans$Scan <- as.character(scans$Scan)
+#   df.arithmetic.mean <- inner_join(labels, scans, by = "Scan") %>%
+#     group_by(TreeID, Nutrient) %>%
+#     summarise(across(Scan:Channels, calculate_mode),
+#               across(`350`:`2500`, mean))
+#   library(psych)
+#   df.harmonic.mean <- inner_join(labels, scans, by = "Scan") %>%
+#     group_by(TreeID, Nutrient) %>%
+#     summarise(across(Scan:Channels, calculate_mode),
+#               across(`350`:`2500`, harmonic.mean))
+#   
+#   df.geometric.mean <- inner_join(labels, scans, by = "Scan") %>%
+#     group_by(TreeID, Nutrient) %>%
+#     summarise(across(Scan:Channels, calculate_mode),
+#               across(`350`:`2500`, geometric.mean))
+#   
+#   return(
+#     list(
+#       "arithmetic" = df.arithmetic.mean,
+#       "harmonic" = df.harmonic.mean,
+#       "geometric" = df.geometric.mean
+#     )
+#   )
+#   
+#   df$Treatment <- gsub("extra", "cont", df$Treatment)
+# }
+# df.by.date <-
+#   mapply(merge.labels.and.scans, labels.by.date, df.by.date)
+# df.all.arithmetic <-
+#   df.by.date["arithmetic", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
+# df.all.harmonic <-
+#   df.by.date["harmonic", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
+# df.all.geometric <-
+#   df.by.date["geometric", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
+# df.all <- bind_rows(
+#   list(
+#     "arithmetic" = df.all.arithmetic,
+#     "harmonic" = df.all.harmonic,
+#     "geometric" = df.all.geometric
+#   ),
+#   .id = "Mean"
+# ) %>%
+#   ungroup() %>%
+#   filter((Mean == "arithmetic" &
+#             Nutrient == "N") | Nutrient == "P")
+# 
+# 
+# # #N contains just N and P contains all other nutrients. Therefore we must work with different data frames for N and P or with an impossibly long dataset
+# df.by.nutrient <- df.all %>% group_by(Nutrient) %>% group_split()
+# df.all %>% group_by(Nutrient) %>% group_keys()
+# 
+# #merge by date and tree ID.
+# Experimental_information <-
+#   Experimental_information %>% mutate(TreeID = as.character(TreeID))
+# 
+# nutrient.content.P.all.dates  <-
+#   Long.all.dates %>% filter(Nutrient != "N") %>%
+#   pivot_wider(names_from = Nutrient, values_from = Concentration) %>%
+#   select(-Treatment) %>%
+#   left_join(select(Experimental_information, TreeID, Treatment),
+#             by = "TreeID") %>%
+#   relocate(Treatment, .after = TreeID)
+# 
+# nutrient.content.N.all.dates <-
+#   Long.all.dates %>% filter(Nutrient == "N") %>%
+#   pivot_wider(names_from = Nutrient, values_from = Concentration) %>%
+#   select(-Treatment) %>%
+#   left_join(select(Experimental_information, TreeID, Treatment),
+#             by = "TreeID") %>%
+#   relocate(Treatment, .after = TreeID)
+# 
+# #bind df with nutrients: need to merge with dates
+# # NB!! dates in nutrients must match with dates of scans!
+# df.all %>% ungroup %>%
+#   select(Nutrient, Date, Date1) %>% distinct()
+# nutrient.content.N.all.dates %>% select(Index, Date) %>%
+#   distinct()
+# nutrient.content.P.all.dates %>% select(Index, Date) %>%
+#   distinct()
+# 
+# #merge df
+# df.N  <-
+#   df.by.nutrient[[1]] %>% inner_join(nutrient.content.N.all.dates,
+#                                      by = c("TreeID", "Date")) %>%
+#   relocate(CIF:N, .after = Nutrient)
+# 
+# df.P <-
+#   df.by.nutrient[[2]] %>% inner_join(nutrient.content.P.all.dates,
+#                                      by = c("TreeID", "Date")) %>%
+#   relocate(CIF:Si, .after = Nutrient)
+# 
+# 
+# # do a quick qaulity control check: Manually check that scan on a
+# # date matches the TreeID and that TreeID on a specific date matches the nurients content recorded.
+# df.N %>% select(Scan, Date, TreeID, Mean, N) %>%
+#   mutate(Scan = as.numeric(Scan)) #%>% View() # looks good!
+# 
+# df.P %>% select(Scan, Date, TreeID, Mean, P:Si) %>%
+#   mutate(Scan = as.numeric(Scan), TreeID = as.numeric(TreeID)) #%>% View() #also great!
 
-# sed files must be saved directly in each months folder (no subfolders)
-setwd(dirname(getActiveDocumentContext()$path))
-setwd("../SED files/")
-spectra.by.date <-
-  lapply(dir_ls(), function(working.directory) {
-    setwd(working.directory)
-    #list of all sig files
-    file.list <- list.files(pattern = "*.sed")
-    spectra <- read_spectra(file.list, extract_metadata = T)
-    setwd("../")
-    return(spectra)
-  })
+# saveRDS(list("N" = df.N, "P" = df.P), "dfs_GH_Nutrients_2023")
 
-metadata <-
-  lapply(spectra.by.date, function(spectra) {
-    metadf <- meta(spectra)
-    return(list("dims" = dim(spectra), "metadata" = metadf))
-  })
-library(janitor)
-#total spectra
-metadata %>% get_elements("dims") %>% bind_rows(.id = "Date") %>% select(n_samples)
-#data loaded correctly, continue working in main directory:
-setwd(dirname(getActiveDocumentContext()$path))
-#reducing the scan down to simple number and setting classes
-
-df.by.date <-
-  lapply(spectra.by.date, function(spectra) {
-    # spectra = spectra.by.date$`2023_Jul_10`
-    df <-
-      as.data.frame(spectra) %>%
-      separate(sample_name, c(NA, "Experiment", "x1", "Target", "filetype")) %>%
-      rename(Scan = Target) %>%
-      select(-x1)
-    df$Date <- as.Date(df$Date, format = "%m/%d/%Y")
-    df$Time <-
-      format(as.POSIXlt(df$Time, format = "%H:%M:%S"), "%H:%M:%S")
-    df$Scan <- gsub("^0+", "", df$Scan)
-    return("df" = df) #dimensions df)
-  })
-
-
-##     Labels =======================================
-
-
-#import.labels: NB! must have one file for each date. All files should be saved
-#under the date in the form 2023_May_30
-
-label.files <- dir_ls("../Excel trees/") %>%
-  `names<-`(names(df.by.date)) #NB! the order of the data frames must be exactly the same as label files
-label.files %>% names()
-
-#colnames must all be the the same: Scan, Nutrient, TreeID, CIF (although not
-#really needed)
-labels.by.date <-
-  lapply(label.files, function(label.file) {
-    read_excel(label.file)
-  })
-
-#labels for which we don't have scans
-check.scans.vs.labels <-
-  function(labels, df) {
-    labels %>%
-      filter(!Scan %in% df$Scan) %>%   #select rows in which the label scan number is not in the spectra: eg. May 30 scans are not all in the same folder. change so that it is the case.
-      select(Scan) %>%
-      mutate(Scan = as.numeric(Scan)) %>%
-      arrange(Scan)
-  } # NAs are errors
-mapply(check.scans.vs.labels, labels.by.date, df.by.date)
-#check we have no labels with with scan id's that are not also in the scan data. i.e. we have a label for every scan: easier if the data are clean (table scan numbers stop
-# when the actual scans do)
-
-#we are missing scans 103 to 255 from 2 May: Data lost to a technical
-# malfunctions
-
-#scans for which we don't have labels
-check.labels.vs.scans <-
-  function(df, labels) {
-    df %>%
-      filter(!Scan %in% labels$Scan) %>% #Select scans in spectral data that are not in labels
-      select(Scan)
-    #nrow() # . = the amount of errors and refs i.e. labels and scans are congruent
-  }
-mapply(check.labels.vs.scans, df.by.date, labels.by.date)
-#scans 1 and 2 from 30 June must have been errors or not relevant.
-#Not in labels merge labels and scans and calculate
-#tree/leaf means for each nutrient
-
-calculate_mode <-
-  function(x) {
-    # function for aggregating tree treatment class
-    uniqx <- unique(na.omit(x))
-    uniqx[which.max(tabulate(match(x, uniqx)))]
-  }
-
-
-#merge labels and scans (means
-#spectra for P estimation are also done here)
-merge.labels.and.scans <- function(labels, scans) {
-  labels$Scan <- as.character(labels$Scan)
-  scans$Scan <- as.character(scans$Scan)
-  df.arithmetic.mean <- inner_join(labels, scans, by = "Scan") %>%
-    group_by(TreeID, Nutrient) %>%
-    summarise(across(Scan:Channels, calculate_mode),
-              across(`350`:`2500`, mean))
-  library(psych)
-  df.harmonic.mean <- inner_join(labels, scans, by = "Scan") %>%
-    group_by(TreeID, Nutrient) %>%
-    summarise(across(Scan:Channels, calculate_mode),
-              across(`350`:`2500`, harmonic.mean))
-  
-  df.geometric.mean <- inner_join(labels, scans, by = "Scan") %>%
-    group_by(TreeID, Nutrient) %>%
-    summarise(across(Scan:Channels, calculate_mode),
-              across(`350`:`2500`, geometric.mean))
-  
-  return(
-    list(
-      "arithmetic" = df.arithmetic.mean,
-      "harmonic" = df.harmonic.mean,
-      "geometric" = df.geometric.mean
-    )
-  )
-  
-  df$Treatment <- gsub("extra", "cont", df$Treatment)
-}
-df.by.date <-
-  mapply(merge.labels.and.scans, labels.by.date, df.by.date)
-df.all.arithmetic <-
-  df.by.date["arithmetic", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
-df.all.harmonic <-
-  df.by.date["harmonic", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
-df.all.geometric <-
-  df.by.date["geometric", ] %>% bind_rows(.id = "Date1") %>% relocate("Date1")
-df.all <- bind_rows(
-  list(
-    "arithmetic" = df.all.arithmetic,
-    "harmonic" = df.all.harmonic,
-    "geometric" = df.all.geometric
-  ),
-  .id = "Mean"
-) %>%
-  ungroup() %>%
-  filter((Mean == "arithmetic" &
-            Nutrient == "N") | Nutrient == "P")
-
-
-# #N contains just N and P contains all other nutrients. Therefore we must work with different data frames for N and P or with an impossibly long dataset
-df.by.nutrient <- df.all %>% group_by(Nutrient) %>% group_split()
-df.all %>% group_by(Nutrient) %>% group_keys()
-
-#merge by date and tree ID.
-Experimental_information <-
-  Experimental_information %>% mutate(TreeID = as.character(TreeID))
-
-nutrient.content.P.all.dates  <-
-  Long.all.dates %>% filter(Nutrient != "N") %>%
-  pivot_wider(names_from = Nutrient, values_from = Concentration) %>%
-  select(-Treatment) %>%
-  left_join(select(Experimental_information, TreeID, Treatment),
-            by = "TreeID") %>%
-  relocate(Treatment, .after = TreeID)
-
-nutrient.content.N.all.dates <-
-  Long.all.dates %>% filter(Nutrient == "N") %>%
-  pivot_wider(names_from = Nutrient, values_from = Concentration) %>%
-  select(-Treatment) %>%
-  left_join(select(Experimental_information, TreeID, Treatment),
-            by = "TreeID") %>%
-  relocate(Treatment, .after = TreeID)
-
-#bind df with nutrients: need to merge with dates
-# NB!! dates in nutrients must match with dates of scans!
-df.all %>% ungroup %>%
-  select(Nutrient, Date, Date1) %>% distinct()
-nutrient.content.N.all.dates %>% select(Index, Date) %>%
-  distinct()
-nutrient.content.P.all.dates %>% select(Index, Date) %>%
-  distinct()
-
-#merge df
-df.N  <-
-  df.by.nutrient[[1]] %>% inner_join(nutrient.content.N.all.dates,
-                                     by = c("TreeID", "Date")) %>%
-  relocate(CIF:N, .after = Nutrient)
-
-df.P <-
-  df.by.nutrient[[2]] %>% inner_join(nutrient.content.P.all.dates,
-                                     by = c("TreeID", "Date")) %>%
-  relocate(CIF:Si, .after = Nutrient)
-
-
-# do a quick qaulity control check: Manually check that scan on a
-# date matches the TreeID and that TreeID on a specific date matches the nurients content recorded.
-df.N %>% select(Scan, Date, TreeID, Mean, N) %>%
-  mutate(Scan = as.numeric(Scan)) #%>% View() # looks good!
-
-df.P %>% select(Scan, Date, TreeID, Mean, P:Si) %>%
-  mutate(Scan = as.numeric(Scan), TreeID = as.numeric(TreeID)) #%>% View() #also great!
-
-saveRDS(list("N" = df.N, "P" = df.P), "dfs_GH_Nutrients_2023")
-
-df.list <- list("N" = df.N, "P" = df.P) # list of dataframes for
+df.list <- readRDS("dfs_GH_Nutrients_2023")
+# df.list <- list("N" = df.N, "P" = df.P) # list of dataframes for
 # N and P: P has all other nutrients as well and thus both cannot be
 #in the same dataframe.
-detach("package:spectrolab", unload = T)
+# detach("package:spectrolab", unload = T)
 
 
 # Process data for spectral for analysis     ====================================
@@ -727,44 +701,10 @@ detach("package:spectrolab", unload = T)
 # Correction can only be done with PLS package                   #
 
 
-# Download package tarball from CRAN archive
-
-## installing hsdar (it was removed from CRAN)
-# #install.packages("devtools")
-# require(devtools)
-#
-# #rgdal is required for hsdar but is also archived:
-# install_version("rgdal", version = "1.6-7", repos = "http://cran.us.r-project.org")
-#
-# #hsdar file details:
-# url <-
-#   "https://cran.r-project.org/src/contrib/Archive/hsdar/hsdar_1.0.4.tar.gz"
-# pkgFile <- "hsdar_1.0.4.tar.gz"
-# download.file(url = url, destfile = pkgFile)
-#
-# # Expand the zip file using whatever system functions are preferred
-#
-# # look at the DESCRIPTION file in the expanded package directory
-#
-# # Install dependencies list in the DESCRIPTION file
-#
-# install.packages(c("raster", "signal", "methods", "caret", "Boruta"))
-#
-# # Install package
-# install.packages(pkgs = pkgFile, type = "source", repos = NULL)
-#
-# # Delete package tarball
-# unlink(pkgFile)
-#
-# #installing hsdar
-#
-# library(rtools)
-# url <-
-#   "https://cran.r-project.org/src/contrib/Archive/hsdar/hsdar_1.0.4.tar.gz"
-# install.packages(url, type = "source", repos = NULL)
-#
-#
-#
+#rgdal and hsdar are no longer supported and dowloading them from CRAN is 
+# all  but impossible. The packages are included in the github repository. Copy 
+#them into the library folder of the version of R you are using. rgdal will need 
+#need to be unzipped
 
 library(hsdar)
 library(pls)
@@ -813,24 +753,8 @@ plot(speclibs[["N"]], main = "Spectra corresponding to N samples")
 par(mfrow = c(1, 2))
 speclibs[["P"]] %>% subset(Mean == "arithmetic",
                            main = "Spectra Corresponding to P samples") %>% plot()
-speclibs[["P"]] %>% subset(Mean == "harmonic") %>% plot(main = "harmonic",
-                                                        new = F,
-                                                        col = "red")
-speclibs[["P"]] %>% subset(Mean == "geometric") %>% plot(main = "geometric",
-                                                         new = F,
-                                                         col = "blue")
 
-#Scale P to see the difference in means more clearly
-y %>% subset(Mean == "arithmetic") %>% plot()
-y %>% subset(Mean == "harmonic") %>% plot(main = "harmonic",
-                                          new = F,
-                                          col = "red")
-y %>% subset(Mean == "geometric") %>% plot(main = "geometric",
-                                           new = F,
-                                           col = "blue")
-
-
-#visualisations
+##visualisations========================
 
 #Plotting function
 
@@ -926,7 +850,65 @@ ggplot.spectra.mean <-
     #scale_color_viridis(option = "D")
   }
 
+plot.spectra.df.mean <- function(spectra.to.plot,
+                                 colour_by,
+                                 range_start = `365`, 
+                                 range_end = `2500`, 
+                                 facet = NULL,
+                                 facet2 = NULL,
+                                 linewidth = 1.2,
+                                 alpha = 0.2,
+                                 show_NA = T) {
+  dfe  <-
+    pivot_longer(spectra.to.plot, {{range_start}}:{{range_end}},
+                 names_to = "Wavelength", values_to = "Reflectance") %>% 
+    group_by(Wavelength, {{facet}}, {{facet2}}, {{colour_by}}) %>% 
+    relocate(Wavelength, {{colour_by}}, {{facet}}, {{facet2}},Reflectance) %>% 
+    summarise( SD = sd(Reflectance, na.rm = T), Reflectance = mean(Reflectance, na.rm = T)) %>% 
+    mutate(Wavelength = as.numeric(as.character(Wavelength))) %>% arrange(Wavelength)
+  
+  if(show_NA == T) {
+    ggplot(data =dfe %>%  mutate({{colour_by}} := {{colour_by}} %>% replace_na("Unknown")))+
+      geom_ribbon(aes(x = Wavelength,
+                      y = Reflectance, 
+                      ymin = Reflectance - SD,
+                      ymax = Reflectance + SD,
+                      fill = {{colour_by}}), 
+                  alpha = alpha) +
+      geom_line(aes(x = Wavelength,
+                    y = Reflectance,
+                    colour = {{colour_by}}),
+                linewidth = linewidth
+      )+
+      theme_classic()+
+      scale_fill_jco()+
+      scale_colour_jco()+
+      xlab("Wavelength (nm)")
+    
+  } else {
+    ggplot(data =dfe %>% filter(!is.na({{colour_by}})))+
+      geom_ribbon(aes(x = Wavelength,
+                      y = Reflectance, 
+                      ymin = Reflectance - SD,
+                      ymax = Reflectance + SD,
+                      fill = {{colour_by}}), 
+                  alpha = alpha) +
+      geom_line(aes(x = Wavelength,
+                    y = Reflectance,
+                    colour = {{colour_by}}),
+                linewidth = linewidth
+      )+
+      theme_classic()+
+      scale_fill_jco()+
+      scale_colour_jco()+
+      xlab("Wavelength (nm)")
+  }
+  
+  #scale_colour_manual(values = pal)
+  #scale_color_viridis(option = "D")
+}
 
+#Plot spectra per treatment for N and P spectra
 a <-
   ggplot.spectra.mean(speclibs$N, colour_by = Treatment, linewidth = 0.5) +
   ylab("Reflectance")
@@ -936,7 +918,7 @@ b <- ggplot.spectra.mean(speclibs$P, colour_by = Treatment, linewidth = 0.5) +
 ggpubr::ggarrange(
   a,
   b,
-  labels = "auto",
+  labels = c("N", "P"),
   common.legend = T,
   nrow = 2,
   ncol = 1,
@@ -1074,15 +1056,8 @@ preprocess.spectra <- function(speclib, linewidth = 1) {
 }
 
 data_sets <- lapply(speclibs, preprocess.spectra)
-ggpubr::ggarrange(
-  plotlist = data_sets$N$spectra,
-  common.legend = T,
-  legend = "right",
-  align = "hv",
-  labels = "auto"
-)
 
-#all in one row
+#plot
 ggpubr::ggarrange(
   plotlist = data_sets$N$spectra,
   common.legend = T,
@@ -1092,7 +1067,7 @@ ggpubr::ggarrange(
   ncol = 4
 )
 #dimensions
-select <- dplyr::select
+select <- dplyr::select # make sure select is dplyr::select etc.
 filter <- dplyr::filter
 data_sets$N[["data_sets"]][["msc"]] %>% select(N) -> N
 (range(N) %>% diff()) / mean(N$N)
@@ -1100,8 +1075,9 @@ data_sets$N[["data_sets"]][["msc"]] %>% select(N) -> N
 data_sets$P[["data_sets"]][["msc"]] %>% dplyr::filter(Mean == "arithmetic") %>% select(P) %>% na.omit -> P
 (range(P) %>% diff()) / mean(P$P, na.rm = T)
 
+# option Save datasets and load so that above code doesn't all need to be run
 # saveRDS(data_sets, "data_sets")
-#data_sets <- readRDS("data_sets")
+# data_sets <- readRDS("data_sets")
 
 
 #   Training and Test Sets =========================================
@@ -1109,12 +1085,17 @@ library(janitor)
 library(caTools)
 
 
-
 data <- get_elements(data_sets, "data_sets")
+
+#unique trees 
 trees <-
   data %>% unlist(F) %>%  bind_rows() %>% dplyr::select(TreeID) %>% unique() %>% mutate(TreeID = as.numeric(TreeID)) %>% arrange(TreeID) %>% rename(training_tree = TreeID)
 trees <- trees$training_tree
+
+# all trees are present
 trees == 1:150
+
+#split
 split <-
   sample.split(levels(as.factor(trees)), SplitRatio = .8) # Split trees into training and test
 
@@ -1138,12 +1119,10 @@ test_trees <-
   test_trees %>%  mutate(TreeID = as.character(TreeID))
 
 # saveRDS(test_trees, "test_trees")
-
+#option: load defined test trees (for reproducibility)
 test_trees <- readRDS("test_trees")
 
-# check distribution
-training_trees %>% left_join(Experimental_information, by = "TreeID") %>% dplyr::select(Treatment) %>% distinct()
-test_trees %>% left_join(Experimental_information, by = "TreeID") %>% dplyr::select(Treatment) %>% distinct()
+#merge with appropriate data
 training_sets.N <-
   lapply(data$N, function(dataset) {
     right_join(dataset, training_trees, by = "TreeID")
@@ -1168,7 +1147,7 @@ test_sets <- list("N" = test_sets.N,
 
 
 
-#Functions to partition data into different sets.
+##Functions to partition data into different sets.==============
 
 #create divide the data into the data from each Date, and each mean
 # (Arithmetic, Geometric and harmonic)
@@ -1325,19 +1304,19 @@ PLS.train <- function(dataset) {
 # will overwrite this file.
 
 library(job)
-job({
-  trained.models.pls.all.dates <-
-    lapply(training.sets.columns$byMean$training_columns, function(list2) {
-      lapply(list2, function(list1) {
-        lapply(list1, PLS.train)
-      })
-    })
-  saveRDS(trained.models.pls.all.dates,
-          "trained.models.pls.all.dates")
-}, import = "auto") #trained.models.pls is too large we will have to find another solution: find best preprocessing using a single full dataset
+# job({
+#   trained.models.pls.all.dates <-
+#     lapply(training.sets.columns$byMean$training_columns, function(list2) {
+#       lapply(list2, function(list1) {
+#         lapply(list1, PLS.train)
+#       })
+#     })
+#   saveRDS(trained.models.pls.all.dates,
+#           "trained.models.pls.all.dates")
+# }, import = "auto") #trained.models.pls is too large we will have to find another solution: find best preprocessing using a single full dataset
 
-# trained.models.pls.all.dates <-
-#   readRDS("trained.models.pls.all.dates")
+trained.models.pls.all.dates <-
+  readRDS("trained.models.pls.all.dates")
 gc()
 #View(trained.models.pls.all.dates)
 
@@ -1360,17 +1339,17 @@ results <- lapply(c(
   "vi" = "vi"
 ),
 create.data.frame.results) %>% bind_rows(.id = "id")
-
-trained.models.pls.all.dates$N$msc[[1]] %>% class()
+# Which preproces performed best
 (
   best.preprocessing <-
     results %>% mutate(is.vi = id == "vi") %>%  relocate(is.vi, .after = id) %>%
     group_by(Nutrient, is.vi) %>%
     slice_min(RMSE, n = 1)
-) # the best combination of preprocessing
+)
+
 results %>% group_by(Nutrient) %>% slice_max(Rsquared, n = 1) #this agrees
 best.results <-
-  results %>% group_by(Nutrient, id, Mean) %>% slice_min(RMSE, n = 1) #for report
+  results %>% group_by(Nutrient, id, Mean) %>% slice_max(Rsquared, n = 1) 
 
 #get ranges of results
 best.results %>% group_by(Nutrient, Mean) %>% summarise(across(RMSE:MAE, min)) -> mins
@@ -1407,17 +1386,16 @@ list(
              labeller = labeller(
                Nutrient = c(
                  N = "N",
-                 `P` = "P (Arithmetic Mean)"
+                 `P` = "P"
              ))) +
   theme_classic() + 
   scale_fill(labels = c("MSC", "SVI"))+
   scale_linetype(labels = c("MSC", "SVI"))+
   labs(x = "Latent Variables",
-       y = "RMSE (Repeated CV)")
-)
+       y = "RMSE (Repeated CV)"))
 
 
-ggplot(data = best.results, aes(x = id, y = RMSE, fill = Mean)) +
+ggplot(data = best.results %>% filter(Mean == "arithmetic"), aes(x = id, y = RMSE)) +
   geom_bar(stat = "identity",
            position = "dodge",
            alpha = 0.4) +
@@ -1437,8 +1415,8 @@ ggplot(data = best.results, aes(x = id, y = RMSE, fill = Mean)) +
   theme_classic() +
   scale_fill() +
   scale_x_discrete(labels = c("d1", "d2", "MSC", "SVI"))
-  theme(legend.key.size = unit(1, 'cm')) +
-  theme(text = element_text(size = 12))#for report
+  # theme(legend.key.size = unit(1, 'cm')) +
+  # theme(text = element_text(size = 12))#for report
 
 
 # The effect of mean is neglible. Random effects might change the outcome.
@@ -1458,9 +1436,6 @@ best.test.byMean <- list(
   "P.msc.arithmetic" = test_sets_byMean$P$msc[[1]],
   "P.vi.arithmetic" = test_sets_byMean$P$vi[[1]]
 )
-
-
-
 
 #Testing Full Models -----------------------------------------------------
 
@@ -1496,29 +1471,6 @@ lapply(models, function(x) {
 
 data %>% ungroup() %>%  mutate(rstand = rstandard) %>% group_by(Nutrient, Correction) -> data
 data %>% mutate(outlier = ifelse(abs(rstand) > 3, value, NA))  -> data
-
-#linear mixed effects
-library(lme4)
-library(lmerTest)
-library(broom.mixed)
-models <-  data %>% group_by(Nutrient, Correction) %>% 
-  do(Model = lmer(value ~ Predicted  +
-                    (1 | Treatment/TreeID), data = .)) %>% 
-  mutate(Summary = list(summary(Model))) 
-
-models %>% 
-  rowwise() %>%
-  mutate(Tidy_Summary = list(tidy(Model))) %>%
-  unnest(Tidy_Summary) ->
-  summary.tibble 
-
-summary.tibble  %>% 
-  filter(term == "Predicted") %>% 
-  select(Nutrient, Correction, term, estimate, Correction, p.value) %>% 
-  mutate(p.adj = p.adjust(p.value, method = "holm"),
-         p.format = p.adj %>% signif(2) %>% as.character) %>% 
-  mutate(p.format = sub("e","%.% 10^",p.format)) ->
-p.values
 
 metrics <-
   data %>% group_by(Nutrient, Correction) %>%
@@ -1581,41 +1533,38 @@ facet_wrap_equal <- function(...) {
           params = facet_super$params)
 }
 
+
 (ggscatter(
   data = data,
   y = "value",
   x = "Predicted",
   shape = "Treatment",
   color = "Treatment"
-) +  
-    geom_point(
-    aes(y = outlier),
-    shape = 1,
-    colour = "red",
-    size = 4,
-    stroke = 1.2
-  ) +
+) +
   geom_abline() +
   #geom_text(aes(label = TreeID), vjust = 1.2, hjust = 1.2) +
   xlab("Predicted Nutrient Concentration (%)") +
   ylab("Measured Nutrient Concentration (%)") +
   facet_wrap_equal(Nutrient ~ Correction, scales = "free") +
   theme_classic() +
-  scale_colour(
+  scale_colour_manual(
     limits = c("cont", "APP", "N", "P", "MoP"),
-    labels = c("Control", "APP", "-N" , "-P","Low P")
+    labels = c("Control", "APP", "-N", "-P","Low P"),
+    values = pal_jco()(6)[-4]
   ) +
   scale_shape(
     limits = c("cont", "APP", "N", "P", "MoP"),
-    labels = c("Control", "APP", "-N" , "-P","Low P")
+    labels = c("Control", "APP", "-N", "-P","Low P")
   ) +
+  stat_cor() +
   stat_regline_equation(vjust = 2, aes(label =  ..adj.rr.label..)) +
-  geom_text(data = p.values, aes(x = -Inf, y = Inf, 
-                                 label = paste("italic(p) == ", p.format)), vjust = 5, hjust = -0.2,
-            parse = T) +
   theme(text = element_text(size = 18)) ->
   test.plots)
 
+# scalar = 1.2
+# ggsave("Figure_2.pdf", test.plots,
+#        height = scalar * 6,
+#        width = scalar * 8)
 
 #Paired t.test: is the difference between the error of the SVI model and MSC model statistically significant: no but close.
 data %>% mutate(Err2 = (Predicted - value) ^ 2) %>% group_by(Nutrient) -> plotting.data
@@ -1637,8 +1586,7 @@ err.data %>% do(t.tests = t.test(Pair(sqrt(MSC), sqrt(SVI)) ~ 1, data = .data)) 
 correction.err.comp[["t.tests"]]
 
 
-
-### Relationship between N and P ------------------------------------------
+## Relationship between N and P ------------------------------------------
 
 # interesting: prediction does poorly on leaves with low N
 # is P underestimated in trees absent of N: yes
@@ -1654,7 +1602,7 @@ t.test(Pair(value, Predicted) ~ Correction,
 t.test.comparison
 
 
-# by Date -------------------------------------------------
+#PLS by Date -------------------------------------------------
 
 # reduce LV search space (each dataset is smaller)
 PLS.train <- function(dataset) {
@@ -1703,16 +1651,16 @@ test_sets <- list(
   "P.vi.arithmetic" = test_sets_bydateXmean$P$vi[c(1, 4, 7)]
 )
 
-#same applies here as above
-job({
-  trained.models.pls.by.date <-
-    lapply(selected.preprocessing, function(list2) {
-      lapply(list2, PLS.train)
-    })
-  saveRDS(trained.models.pls.by.date, "trained.models.pls.by.date")
-}, import = "auto")
+#same applies here as above: can load trained model
+# job({
+#   trained.models.pls.by.date <-
+#     lapply(selected.preprocessing, function(list2) {
+#       lapply(list2, PLS.train)
+#     })
+#   saveRDS(trained.models.pls.by.date, "trained.models.pls.by.date")
+# }, import = "auto")
 
-#trained.models.pls.by.date <- readRDS("trained.models.pls.by.date")
+trained.models.pls.by.date <- readRDS("trained.models.pls.by.date")
 trained.models.pls.by.date %>% get_elements("results") %>% bind_rows(.id = "Model") %>%
   mutate(
     Nutrient = ifelse(Model %in% 1:6, "N", "P"),
@@ -1729,9 +1677,7 @@ trained.models.pls.by.date %>% get_elements("results") %>% bind_rows(.id = "Mode
   arrange(Model %>% as.numeric()) %>%
   select(-Model) -> CV.by.date
 
-CV.by.date %>% mutate(across(RMSE:MAESD, \(x) round(x, 2))) -> CV.by.date
-library(clipr)
-write_clip(CV.by.date)
+CV.by.date %>% mutate(across(RMSE:MAESD, \(x) round(x, 2)))
 
 ## predictions by date =============================
 
@@ -1748,7 +1694,7 @@ N.test <- function(model, test.set) {
   
   return(list(
     "metrics" = metrics.N,
-    "data" = data %>% select(Predicted, N, Treatment, TreeID)
+    "data" = data %>% select(Predicted, N, Treatment)
   ))
   # return(metrics.N)
 }
@@ -1782,7 +1728,7 @@ P.test <- function(model, test.set) {
   
   return(list(
     "metrics" = metrics.P,
-    "data" = data %>% select(Predicted, P, Treatment, TreeID)
+    "data" = data %>% select(Predicted, P, Treatment)
   ))
   # return(metrics.P)
 }
@@ -1820,34 +1766,32 @@ bind_rows(
   pivot_longer(c(P, N), names_to = "Nutrient", values_to = "Measured") %>% na.omit() ->
   plotting.data
 
-library(ggh4x)
-
-###plot results ===================================
 #get p.values
 library(stats)
 library(broom)
-plotting.data %>%
-  group_by(Model, Month) %>%
-  do(lmer = lmer(Measured ~ Predicted + (1 | Treatment), data = .)) %>%
-  mutate(Tidy_Summary = list(tidy(lmer))) %>%
-  unnest(Tidy_Summary) %>%
-  filter(term == "Predicted") %>%
+plotting.data %>% group_by(Model, Month) %>%
+  do(lm = lm(Measured ~ Predicted, data = .data) %>%
+       summary) %>%
+  mutate(lm = list(tidy(lm))) %>% 
+  unnest(lm) %>% filter(term == "Predicted") %>%
   mutate(p.adj = p.adjust(p.value, "holm")) %>%
   mutate(
-    p.adj = signif(p.adj, 3),         # Round p.adj to 3 significant figures
-    p.format = formatC(p.adj, format = "e", digits = 2), # Express p.adj in scientific notation
-    sig = ifelse(p.adj < .001, "*", NA)) %>%  # Use scientific notation for p.format 
-  # mutate(p.format = sub("e","%.% 10^", p.adj.sci)) %>% 
-  separate(Model, into = c("Nutrient", "Preprocess"),
-           remove = F)-> lm.by.month
+    sig = ifelse(p.adj < .05, "*", NA),
+    p.adj = round(p.adj, 3),
+    p.format = case_when(p.adj < 0.001 ~ "italic('p') <.001", 
+                         p.adj >= 0.001 ~ paste0("italic('p') == ", p.adj))) %>% 
+  separate(Model, into = c("Nutrient", "Preprocess")) %>% 
+  unite(Model, Nutrient, Preprocess, sep = ":") -> lm.by.month
 
-plotting.data %>% filter(Model == "P:SVI", Month == "July") %>% 
- lmer(Measured ~ Predicted + (1| Treatment), data = .) %>% summary()
+library(ggh4x)
 
-lm.by.month 
-#BM
+###plot results ===================================
+
 #fixed slope
-(plotting.data %>% group_by(Nutrient) %>%
+plotting.data %>% left_join(lm.by.month) %>%
+  group_by(Model, Month) %>%
+  mutate(p.format = if_else(row_number() == 1, p.format, NA)) %>% 
+  group_by(Nutrient) %>% 
   do(
     plots =   ggplot(., aes(x = Predicted,  y = Measured)) +
       geom_point(aes(shape = Treatment, colour = Treatment)) +
@@ -1855,64 +1799,32 @@ lm.by.month
                        Model ~ Month) +
       theme_classic() +
       scale_colour(
-        limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-        labels = c("Control", "APP", "-N" , "Low N", "-P","Low P")
+        limits = c("APP", "cont", "MoP", "N", "P"),
+        labels = c("APP", "Control", "Low P", "-N", "-P")
       ) +
       scale_shape_discrete(
-        limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-        labels = c("Control", "APP", "-N" , "Low N", "-P","Low P")
+        limits = c("APP", "cont", "MoP", "N", "P"),
+        labels = c("APP", "Control", "Low P", "-N", "-P")
       ) +
       geom_abline() +
       #stat_cor() +  #uncomment for statistics
       #stat_regline_equation(vjust = 2, aes(label =  ..adj.rr.label..)) +
       xlab("Predicted Nutrient Concentration (%)") +
-      ylab("Measured Nutrient Concentration (%)")) ->
-  testsbydate.plot2)
+      ylab("Measured Nutrient Concentration (%)") +
+      geom_text(aes( label = p.format),
+                x = Inf,
+                y = -Inf,
+                size = 3,
+                colour = "black",
+                hjust = 1.5,
+                vjust = -0.5,
+                parse = T)) ->
+  testsbydate.plot2
 
 (testsbydate.plot2$plots %>% ggarrange(plotlist = .,
                                       common.legend = T,
                                       nrow = 2) -> testsbydate.plot2)
 
-lm.by.month %>% select(Model:Month, p.format) %>% group_by(Nutrient) %>% 
-  select(Model, Month, Nutrient, p.format) %>% ungroup %>% 
-  nest(annotations = c(Model, Month, p.format), .by = Nutrient)-> p.values 
-{
-( plotting.data %>% 
-   group_by(Nutrient) %>%
-   do(
-     plots = ggplot(., aes(x = Predicted, y = Measured)) +
-       geom_point(aes(shape = Treatment, colour = Treatment)) +
-       facet_wrap_equal(ncol = 3, vars(Model, Month)) +
-       theme_classic() +
-       scale_colour(
-         limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-         labels = c("Control", "APP", "-N" , "Low N", "-P","Low P")
-       ) +
-       scale_shape_discrete(
-         limits = c("cont", "APP", "N", "LN", "P", "MoP"),
-         labels = c("Control", "APP", "-N" , "Low N", "-P","Low P")
-       ) +
-       geom_abline() +
-       xlab("Predicted Nutrient Concentration (%)") +
-       ylab("Measured Nutrient Concentration (%)") 
-   ) -> testsbydate.plots2)
-
-testsbydate.plots2 %>% left_join(p.values, by = "Nutrient") %>% 
-  mutate(plots = list(
-    plots +
-      geom_text(
-        data = annotations,
-        aes(x = -Inf, y = -Inf, label = paste("italic(p) == ", p.format)),
-        vjust = -.4,
-        hjust = -1.2,
-        parse = T,
-        inherit.aes = T
-      ))) ->  testsbydate.plot2
-
- (ggarrange(plotlist = testsbydate.plot2$plots, nrow = 2,
-           common.legend = T) -> testsbydate.plot2)
-}
- 
 #summary
 library(dplyr)
 N.msc.metrics <- bind_rows(N.msc[1, ])
@@ -1937,39 +1849,39 @@ Metrics <- bind_rows(N.metrics,
                      P.metrics) %>% dplyr::rename(Preprocess = id) %>%
   relocate(Nutrient)
 
-#BM
 
 library(tidyverse)
 library(ggpubr)
 
-Metrics %>% mutate(Not.trustworthy = ifelse(Nutrient == "P" &
-                                              Date == "2023-05-02", Rsquare,  0)) ->
+Metrics %>% 
+  mutate(Not.trustworthy = ifelse(Nutrient == "P" &
+                                              Date == "2023-05-02", RMSE,  0)) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  as_tibble ->
   Metrics #add column to allow exclusion of untrustworthy data
-(ggplot(data = Metrics) +
-  geom_bar(aes(x = Date,
-               y = Rsquare,
-               fill = Preprocess),
+
+ggplot(data = Metrics) +
+  geom_line(aes(x = Date,
+               y = RMSE,
+               colour = Preprocess),
            stat = "identity",
-           position = "dodge") +
-  geom_bar(
-    aes(x = Date, y = Not.trustworthy, group = Preprocess),
-    alpha = 0.8,
-    fill = "grey",
-    stat = "identity",
-    position = position_dodge()
-  ) +
-  facet_wrap( ~ Nutrient, nrow = 2) +
+           # position = "dodge",
+           linewidth = 1) +
+  facet_wrap( ~ Nutrient, nrow = 2, scales = "free") +
   theme_classic() +
-  scale_fill(limits = c("msc", "vi"),
+  scale_colour(limits = c("msc", "vi"),
              labels = c("MSC", "SVI")) +
-  ylab("R-squared (Test)") +
+  scale_x_date(date_labels = "%b %d",
+               date_breaks = "3 weeks")+
+  ylab("RMSE (Test)") +
+  ylim(c(0,NA))+
   theme(
     text = element_text(size = 12),
     legend.position = c(0.27, 0.62),
     legend.title = element_blank(),
     legend.text = element_text(size = 8),
     legend.box.background = element_rect(colour = "black", linewidth = 1)
-  ) -> RMSE.Date.Comparison)
+  ) -> RMSE.Date.Comparison
 
 #metrics
 (Metrics %>% relocate(Nutrient, Date) %>%
@@ -1977,10 +1889,9 @@ Metrics %>% mutate(Not.trustworthy = ifelse(Nutrient == "P" &
                                         pattern = c("msc" = "MSC", "vi" = "SVI"))) %>% 
     mutate(Month = month(Date, label = T, abbr = F) %>%
              as.character()) %>% 
-    left_join(lm.by.month, by = c("Nutrient", "Preprocess", "Month")) %>%
-    select(-c(Not.trustworthy, Month:sig)) %>% 
-    mutate(across(RMSE:Rsquare, round, 2))-> x)
-write_clip(x)
+    left_join(lm.by.month %>% separate(Model, into = c("Nutrient", "Preprocess")),
+              by = c("Nutrient", "Preprocess", "Month")) %>%
+    select(-c(Not.trustworthy, Month:sig)))
 
 
 #using facet_wrap_equal
@@ -1989,11 +1900,16 @@ testsbydate.plot2 +
         axis.text = element_text(size = 8)) -> x
 RMSE.Date.Comparison -> y
 #theme(legend.position = "none") -> y
-ggarrange(x, y, labels = "auto", widths = c(4.5, 2)) 
+(ggarrange(x, y, labels = "auto", widths = c(4.5, 2)) -> 
+  testsbydate.plot.final)
+
+# scalar = 1
+# ggsave("Figure_5.pdf", testsbydate.plot.final,
+#        height = scalar * 8,
+#        width = scalar * 8)
+
 
 #       Important Wavelengths      ============================================
-trained.models.pls.by.date %>% str(2)
-best.models.all.dates %>% str(2)
 
 library(plsVarSel)
 bestTunes <-
@@ -2012,7 +1928,7 @@ mapply(VIP, finalModels, bestTunes) %>%
   separate(id, c("Nutrient", "Correction")) %>%
   group_by(Nutrient, Correction) %>%
   dplyr::rename(VIP = value) %>%
-  filter(VIP > 1) %>%
+  slice_max(VIP, n = 100) %>%
   mutate(Wavelength = gsub("`", "", Wavelength)) -> important.wavelengths.all.dates
 
 (ggplot(
@@ -2067,13 +1983,11 @@ imp.SVI.VIP %>% ungroup() %>%
   select(-c(Correction.x, Correction.y, mRMR, rank)) %>%
   arrange(Nutrient, desc(VIP)) -> imp.SVI.VIP.mRMR
 
-write_clip(imp.SVI.VIP.mRMR)
-
 imp.SVI.VIP.mRMR %>% group_by(Nutrient) %>%  arrange(mRMR.rank) %>% 
   slice_min(mRMR.rank, n = 13) # %>% View()
 #TODO edit and add to document
 
-
+## plot importance against spectra =========
 ggplot.ribbon <- function(long.dataset, alpha = .1) 
   {
   long.dataset <- data.to.plot
@@ -2104,19 +2018,24 @@ ggplot.ribbon <- function(long.dataset, alpha = .1)
 bind_rows(
   N =  data_sets$N$data_sets$msc,
   P = data_sets$P$data_sets$msc,
-  .id = "Nutrient"
 ) %>%
   filter(Mean == "arithmetic")  %>% pivot_longer(`365`:`2500`, names_to = "Wavelength", values_to = "Reflectance") %>%
   filter((Nutrient == "N"  &
             Treatment %in% c("cont", "N", "LN")) |
            (Nutrient == "P"  &
-              Treatment %in% c("cont", "P", "MoP"))) -> data.to.plot
+              Treatment %in% c("cont", "P", "MoP"))|
+           (Nutrient == "Multiclass")) %>% 
+  mutate(Nutrient = factor(Nutrient,levels = c("N", "P", "Multiclass"))) -> data.to.plot
+
+
+# install.packages("ggnewscale")
+library(ggnewscale)
 
 (ggplot.ribbon(data.to.plot, alpha = 0 ) +
   geom_vline(
     data = imp.msc,
     aes(xintercept = Wavelength),
-    colour = "lightgrey" ,
+    colour = "darkgrey" ,
     alpha = .5,
     show.legend = F
   ) +
@@ -2127,6 +2046,7 @@ bind_rows(
     colour = "orange" ,
     show.legend = F
   ) +
+    new_scale_colour() +
   geom_line(aes(x = Wavelength,
                 y = Mean,
                 colour = Treatment),
@@ -2143,7 +2063,74 @@ bind_rows(
   ylab("MSC-Reflectance") +
   xlab("Wavelegnth (nm)") +
   theme(text = element_text(size = 12)) +
-  facet_wrap(~Nutrient, nrow = 2) -> variable.importance)
+  facet_wrap(~Nutrient, nrow = 3) 
+    # scale_color_manual(values = colors)
+  -> variable.importance)
+
+#difference plot
+bind_rows(
+  N =  data_sets$N$data_sets$msc,
+  P = data_sets$P$data_sets$msc) %>% 
+  filter(Mean == "arithmetic")-> x
+# 1. Compute mean spectrum for control
+mean.spectra <- x %>% 
+  filter(Treatment == "cont") %>% 
+  pivot_longer(cols = `365`:`2500`, names_to = "Wavelength", values_to = "MSC") %>%
+  group_by(Wavelength) %>%
+  summarise(mean_MSC = mean(MSC, na.rm = TRUE), .groups = "drop")
+
+# 2. Calculate difference from control spectrum
+diff.spectra <- x %>%
+  filter(Mean == "arithmetic") %>%
+  select(Scan, Treatment, Nutrient, Date, `365`:`2500`) %>%
+  pivot_longer(cols = `365`:`2500`, names_to = "Wavelength", values_to = "MSC") %>%
+  left_join(mean.spectra, by = "Wavelength") %>%
+  mutate(diff = MSC - mean_MSC) %>%
+  pivot_wider(names_from = Wavelength, values_from = diff, 
+              id_cols = c(Scan, Treatment, Nutrient, Date)) -> data.to.plot
+
+  data.to.plot %>% plot.spectra.df.mean(colour_by = Treatment, facet = Nutrient, linewidth = 0.1, alpha = 0.01) +
+  facet_wrap( ~ Nutrient, scales = "free",
+              nrow = 2) +
+  ylab(expression(Reflectance[trt] - Reflectance[Control])) +
+  scale_fill(
+    labels = c("Control", "APP", "-N" , "Low N", "-P", "Low P"),
+    limits = c("cont", "APP", "N", "LN", "P", "MoP")
+  ) +
+  scale_colour(
+    labels = c("Control", "APP", "-N" , "Low N", "-P", "Low P"),
+    limits = c("cont", "APP", "N", "LN", "P", "MoP")
+  ) +
+  geom_vline(
+    data = imp.msc,
+    aes(xintercept = Wavelength),
+    colour = "darkgrey" ,
+    alpha = .2,
+    show.legend = F
+  ) +
+  geom_vline(
+    data = imp.all.dates.mRMR %>% filter(Correction == "msc"),
+    aes(xintercept = Wavelength %>% as.numeric()),
+    alpha = .4,
+    colour = "orange" ,
+    show.legend = F
+  ) +
+  geom_line(data = mean.spectra %>% mutate(Wavelength = as.numeric(Wavelength)),
+            aes(x = Wavelength, y = mean_MSC/10 + .1), colour = "black") +
+  geom_line(data = data.to.plot %>% 
+              pivot_longer(cols = `365`:`2500`, names_to = "Wavelength", values_to = "MSC") %>%
+              group_by(Wavelength, Treatment, Nutrient) %>%
+              summarise(mean_MSC = mean(MSC, na.rm = TRUE),
+                        sd_MSC = sd(MSC, na.rm = TRUE)),
+            aes(x = as.numeric(Wavelength), y = mean_MSC, colour = Treatment),
+            linewidth = .8) -> Variabale.importance.plot
+            
+# scalar = 1
+# ggsave("Figure_3.pdf", Variabale.importance.plot,
+#        height = 6*scalar, width = 8*scalar)
+              
+  
+
 
 #  Backward Feature Elimination  =============================================
 
@@ -2175,61 +2162,60 @@ PLS.train <- function(dataset) {
 # rerunning will produce slightly different results each time and take 
 # condiserable time (approximately 20 minutes). 
 # The results can be loaded from a saved object:
-job({
-  remove(model)
-  lapply(best.models.all.dates, function(model) {
-    #model = best.models.all.dates$N.msc
-    nsel <-
-      c(2:30, seq(40, 100, 10), 115, seq(100, dim(model$trainingData)[2] -
-                                           1, 50)) %>%
-      unique()
-    lapply(nsel %>% as.list, function(x) {
-      #x = 2
-      model$finalModel %>% mRMR(nsel = x, model$trainingData %>%
-                                  select(-.outcome)) -> variables
-      model$trainingData %>% dplyr::select(.outcome, variables$selection) ->
-        data
-      PLS.train(data) -> model
-      model$results %>% slice_min(RMSE)
-    }) -> results
-    results %>% bind_rows() %>% mutate(nsel = nsel)
-  }) -> learning.curve.data.mRMR
-}, import = "auto")
+# job({
+#   remove(model)
+#   lapply(best.models.all.dates, function(model) {
+#     #model = best.models.all.dates$N.msc
+#     nsel <-
+#       c(2:30, seq(40, 100, 10), 115, seq(100, dim(model$trainingData)[2] -
+#                                            1, 50)) %>%
+#       unique()
+#     lapply(nsel %>% as.list, function(x) {
+#       #x = 2
+#       model$finalModel %>% mRMR(nsel = x, model$trainingData %>% 
+#                                   select(-.outcome)) -> variables
+#       model$trainingData %>% dplyr::select(.outcome, variables$selection) ->
+#         data
+#       PLS.train(data) -> model
+#       model$results %>% slice_min(RMSE)
+#     }) -> results
+#     results %>% bind_rows() %>% mutate(nsel = nsel)
+#   }) -> learning.curve.data.mRMR
+# }, import = "auto")
 
 
 
 # Get importance using VIP algorithm and data to plot
-job({
-  lapply(best.models.all.dates, function(model) {
-    #model = best.models.all.dates$N.msc
-    nsel <-
-      c(2:30, seq(40, 100, 10), 115, seq(100, dim(model$trainingData)[2] -
-                                           1, 50)) %>%
-      unique()
-    lapply(nsel %>% as.list, function(x) {
-      # x = 10
-      model$finalModel %>% VIP(opt.comp = model$bestTune[1, 1]) %>%
-        as_tibble(rownames = "Wavelength") %>%
-        rename(VIP = value) %>%
-        arrange(desc(VIP)) %>%
-        mutate(Wavelength = gsub("`", "", Wavelength)) %>%
-        slice_max(VIP, n = x) %>%
-        dplyr::select(Wavelength) -> variables
-      model$trainingData %>% dplyr::select(.outcome, variables[[1]]) -> data
-      PLS.train(data) -> model
-      model$results %>% slice_min(RMSE)
-    }) -> results
-    results %>% bind_rows() %>% mutate(nsel = nsel)
-  }) -> learning.curve.data.VIP
-}, import = "auto")
+# job({
+#   lapply(best.models.all.dates, function(model) {
+#     #model = best.models.all.dates$N.msc
+#     nsel <-
+#       c(2:30, seq(40, 100, 10), 115, seq(100, dim(model$trainingData)[2] -
+#                                            1, 50)) %>%
+#       unique()
+#     lapply(nsel %>% as.list, function(x) {
+#       # x = 10
+#       model$finalModel %>% VIP(opt.comp = model$bestTune[1, 1]) %>%
+#         as_tibble(rownames = "Wavelength") %>%
+#         rename(VIP = value) %>%
+#         arrange(desc(VIP)) %>%
+#         mutate(Wavelength = gsub("`", "", Wavelength)) %>%
+#         slice_max(VIP, n = x) %>%
+#         dplyr::select(Wavelength) -> variables
+#       model$trainingData %>% dplyr::select(.outcome, variables[[1]]) -> data
+#       PLS.train(data) -> model
+#       model$results %>% slice_min(RMSE)
+#     }) -> results
+#     results %>% bind_rows() %>% mutate(nsel = nsel)
+#   }) -> learning.curve.data.VIP
+# }, import = "auto")
 
-#BM
-RFE.results <- list(mRMR = learning.curve.data.mRMR,
-                    VIP = learning.curve.data.VIP)
+# RFE.results <- list(mRMR = learning.curve.data.mRMR, 
+#                     VIP = learning.curve.data.VIP)
 #saveRDS(RFE.results, "RFE.results")
 
 #load saved data files 
-#RFE.results <- readRDS("RFE.results")
+RFE.results <- readRDS("RFE.results")
 learning.curve.data.mRMR <- RFE.results[["mRMR"]]
 learning.curve.data.VIP <- RFE.results[["VIP"]]
 # Plot Results
@@ -2242,20 +2228,22 @@ learning.curve.data.VIP %>% bind_rows(.id = "id") %>%
 bind_rows(mRMR = data.to.plot.mRMR, VIP = data.to.plot.VIP, .id = "Sel_proc") ->
   data.to.plot
 
-(ggplot(data.to.plot, aes(x = nsel)) +
-  geom_ribbon(aes(
-    ymin = RMSE - RMSESD,
-    ymax = RMSE + RMSESD,
-    fill = Sel_proc
+(data.to.plot %>% group_by(Nutrient) %>% 
+  do(plot = ggplot(data = .,
+            aes(x = nsel)) +
+            geom_ribbon(aes(
+            ymin = RMSE - RMSESD,
+            ymax = RMSE + RMSESD,
+            fill = Sel_proc
   ),
   alpha = 0.3,
   ) +
   geom_line(aes(y = RMSE, lty = Sel_proc, colour = Sel_proc), linewidth = .8) +
-  facet_grid2(
-    Preprocess ~ Nutrient,
-    scales = "free",
+  facet_grid(
+    Nutrient ~ Preprocess,
+    # scales = "free",
     labeller = labeller(Preprocess = c("msc" = "MSC", "vi" = "SVI")),
-    independent = "all"
+    # independent = "y"
   ) +
   theme_classic() +
   scale_fill_manual(name = "", values = c("Orange", "grey")) +
@@ -2265,18 +2253,49 @@ bind_rows(mRMR = data.to.plot.mRMR, VIP = data.to.plot.VIP, .id = "Sel_proc") ->
   ylab("RMSE (Cross-Validated)") +
   theme(text = element_text(size = 12),
         legend.text = element_text(size = 12)) +
-  xlim(c(0, 100)) -> rfe.plot)
+  xlim(c(0, 100)) -> rfe.plot))
 
+library(dplyr)
+library(ggplot2)
 
-text <- theme(text = element_text(size = 10))
-ggarrange(
-  variable.importance + text,
-  rfe.plot + text,
+rfe.plot <- data.to.plot %>%
+  group_by(Nutrient) %>%
+  do(plot = ggplot(., aes(x = nsel)) +  # <-- use '.' inside do() to refer to the grouped data
+       geom_ribbon(aes(
+         ymin = RMSE - RMSESD,
+         ymax = RMSE + RMSESD,
+         fill = Sel_proc
+       ), alpha = 0.3) +
+       geom_line(aes(y = RMSE, lty = Sel_proc, colour = Sel_proc), linewidth = 0.8) +
+       facet_grid(
+         Nutrient ~ Preprocess,
+         labeller = labeller(Preprocess = c("msc" = "MSC", "vi" = "SVI"))
+         # independent = "y" # (this only applies to ggh4x::facet_grid2)
+       ) +
+       theme_classic() +
+       scale_fill_manual(name = "", values = c("Orange", "grey")) +
+       scale_colour_manual(name = "", values = c("Orange", "grey")) +
+       scale_linetype_discrete(name = "") +
+       xlab("Number of Selected Features") +
+       ylab("RMSE (Cross-Validated)") +
+       theme(text = element_text(size = 12),
+             legend.text = element_text(size = 12)) +
+       xlim(c(0, 100))
+  )
+
+rfe.plot$plot
+(ggarrange(plotlist = rfe.plot$plot,
   nrow = 2,
-  heights = c(1, 2.5),
-  labels = "auto",
-  align = "hv"
-)
+  labels = NULL,
+  common.legend = T,
+  legend = "right"
+) -> rfe.plot.final)
 
+# scalar = 1
+# ggsave("Figure_4.pdf", rfe.plot.final,
+#        height = 6*scalar, width = 8*scalar)
 
+#Zoom in
+rfe.plot$plot[[1]] +
+  xlim(0,300)
 
