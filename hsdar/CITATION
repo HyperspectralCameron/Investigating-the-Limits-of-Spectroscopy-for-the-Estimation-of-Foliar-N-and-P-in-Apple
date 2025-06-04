@@ -1,0 +1,27 @@
+bibentry(bibtype = "Article",
+         title        = "Hyperspectral Data Analysis in {R}: The {hsdar} Package",
+         author       = c(person(given = c("Lukas", "W."),
+                                 family = "Lehnert",
+                                 email = "lukaslehnert@googlemail.com"),
+                          person(given = "Hanna",
+                                 family = "Meyer"),
+                          person(given = c("Wolfgang", "A."),
+                                 family = "Obermeier"),
+                          person(given = "Brenner",
+                                 family = "Silva"),
+                          person(given = "Bianca",
+                                 family = "Regeling"),
+                          person(given = "Boris",
+                                 family = "Thies"),
+                          person(given = "J\\\"{o}rg",
+                                 family = "Bendix")),
+         journal      = "Journal of Statistical Software",
+         year         = "2019",
+         volume       = "89",
+         number       = "12",
+         pages        = "1--23",
+         doi          = "10.18637/jss.v089.i12",
+         
+         header       = "To cite hsdar in publications use:"
+)
+

@@ -1,0 +1,107 @@
+$,Nri-method            Methods for * Nri-class
+Boruta-methods          Methods for Function 'Boruta'
+Clman-class             * Clman class
+DistMat3D-class         * DistMat3D class
+HyperSpecRaster         Handle hyperspectral cubes using raster package
+                        (deprecated)
+HyperSpecRaster-class   HyperSpecRaster* class (deprecated)
+Nri-class               * Nri class
+PROSAIL                 Simulate canopy spectrum
+PROSPECT                Simulate plant spectrum
+Raster-methods          Rasterbased methods for spectra
+SI                      Handling supplementary information (SI) of
+                        spectra
+Specfeat-class          * Specfeat class
+Speclib-class           * Speclib class
+USGS_get_available_files
+                        import USGS spectra
+[,Speclib,ANY,ANY-method
+                        Indexing Speclib
+addcp                   Manually add fix point to continuum line
+apply.DistMat3D         Apply function for class DistMat3D
+apply.Speclib           Apply function for class Speclib
+bandnames               Handling names of bands
+bdri                    Band depth ratio indices
+blockSize,Speclib-method
+                        Functions for processing large hyperspectral
+                        raster files
+cancer_spectra          Hyperspectral samples
+checkhull               Check continuum line
+cor.test.nri            Test for association/correlation between nri
+                        values and vector of samples
+createDataPartition-methods
+                        Methods for Function 'createDataPartition'
+createFolds-methods     Methods for Function 'createFolds' and
+                        'createMultiFolds'
+createResample-methods
+                        Methods for Function 'createResample'
+cubePlot                cubePlot
+cut_specfeat            Cut absorption features
+deletecp                Delete fix point
+derivative.speclib      Derivation
+dim.speclib             Dimensions of Speclib
+dist.speclib            Distance between spectra
+distMat3D               Methods to create, manipulate and query objects
+                        of class 'DistMat3D'.
+featurePlot-methods     Methods for Function 'featurePlot'
+feature_properties      Calculation of properties of features
+gafs-methods            Methods for Function 'gafs'
+get.gaussian.response   Gaussian response function
+get.sensor.characteristics
+                        Sensor characteristics
+getNRI                  Return nri-values
+get_reflectance         Get reflectance values
+getcp                   Get fix points
+glm.nri                 (Generalised) Linear models from normalised
+                        ratio indices
+hsdar-package           Manage, analyse and simulate hyperspectral data
+                        in R
+hsdar_parallel          hsdar_parallel
+hsdardocs               Load additional documents
+idSpeclib               Handling IDs of spectra
+initialize,Clman-method
+                        Methods to create, manipulate and query objects
+                        of class 'Clman'.
+makehull                Re-calculate hull
+mask                    Mask spectra
+meanfilter              Apply mean filter
+merge,Speclib,Speclib-method
+                        Merge speclibs
+noiseFiltering          Smooth spectra
+nri                     Normalised ratio index
+nri_best_performance    Best performing model(s) with NRI
+plot.Nri                Plot function for (g)lm.nri and cor.test.nri
+plot.Specfeat           Plot Specfeat
+plot.Speclib            Plot speclib
+postprocessASD          Read ASD binary file
+preProcess-methods      Methods for Function 'preProcess'
+predictHyperspec        Prediction based on train-object and Speclib
+rastermeta              Create list containing rastermeta-information
+read.ASD                Read ASD binary file
+read_header             Get reflectance values
+rededge                 Red edge parameter
+rfe-methods             Methods for Function 'rfe'
+safs-methods            Methods for Function 'safs'
+sbf-methods             Methods for Function 'sbf'
+setPredictor-methods    Set predictor variable(s)
+setResponse-methods     Set response variable
+showCaretParameters     Show caret related parameters
+smgm                    SMGM
+soilindex               soilindex
+specfeat                Function to isolate absorption features
+speclib                 Methods to create objects of class Speclib
+spectra                 Handling spectra
+spectralInterpolation   Interpolate spectra
+spectralResampling      Spectral resampling
+spectral_data           Hyperspectral samples
+sr                      Simple ratio index
+subset.nri              Subsetting 'Nri'-objects
+subset.speclib          Subsetting speclibs
+t.test.nri              t-test for nri values
+train-methods           Methods for Function 'train'
+transformSpeclib        Transform spectra
+unmix                   Unmix spectra
+updatecl                Check transformed Speclib
+usagehistory            History of usage
+vegindex                vegindex
+wavelength              Handling wavelength and fwhm

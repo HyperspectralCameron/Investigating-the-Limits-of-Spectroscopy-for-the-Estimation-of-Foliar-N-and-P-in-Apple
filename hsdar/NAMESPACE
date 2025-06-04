@@ -1,0 +1,60 @@
+import(
+  raster,
+  rgdal,
+  methods,
+  caret,
+  Boruta
+  )
+importFrom("graphics", "legend", "par", "points", "polygon", "rasterImage", "rect", "title")
+importFrom("grDevices", "chull", "colorRamp", "dev.off", "hcl", "heat.colors", "palette", "png", "rgb")
+importFrom("stats", "approx", "as.dist", "as.formula", "dist", "dnorm", "glm", "lm", "lowess", "sd", "spline", "splinefun", "terms", "update.formula", "optim")
+importFrom("utils", "data")
+importFrom("signal", sgolay)
+importFrom("signal", sgolayfilt)
+importFrom("stats", "cor", "na.fail")
+importFrom("utils", "read.table")
+
+useDynLib(hsdar, .registration = TRUE)
+
+exportPattern("^[[:alpha:]]+")
+exportMethods(
+    "apply",
+    "SI",
+    "SI<-",
+    "as.array",
+    "as.matrix",
+    "[<-",
+    "[",
+    "$",
+    "cor.test",
+    "dim",
+    "distMat3D",
+    "getValuesBlock",
+    "HyperSpecRaster",
+    "initialize",
+    "mask<-",
+    "merge",
+    "ncol",
+    "n_features",
+    "nrow",
+    "plot",
+    "print",
+    "show",
+    "speclib",
+    "spectra<-",
+    "spectra",
+    "subset",
+    "t.test",
+    "wavelength<-",
+    "wavelength",
+    "writeStart",
+    "writeValues" 
+)
+exportClasses(
+     "Clman",
+     "DistMat3D",
+     "HyperSpecRaster",
+     "Nri",
+     "Specfeat",
+     "Speclib" 
+)
