@@ -1,9 +1,14 @@
-
+#
 
 
 
 #   Foil Tunnel Leaf     #
 # nutrient analysis 2023 #
+
+# This script analyses spectra using an R package hsdar. This script was used to generate the results contained in
+# the accompanying research article. However, since then hsdar has been removed from CRAN and has rgdal as a dependency 
+# which cannot run at all on R 4.5. As such, an alternative script (R_script.R) has been created that provides
+# work arounds such that hsdar is not required. 
 
 #Document set up ================
 # we have all the data except N concentration from June, and some scans from:
@@ -2298,4 +2303,5 @@ rfe.plot$plot
 #Zoom in
 rfe.plot$plot[[1]] +
   xlim(0,300)
+
 
